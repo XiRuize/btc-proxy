@@ -1,0 +1,27 @@
+{
+  "_comment": "离线自测样例：模拟币安三类接口的返回，供 scripts/selftest.py 使用（时间戳由脚本动态生成）",
+  "klines:BTCUSDT": [
+    [1730787300000, "76816.01", "78063.30", "76388.88", "77453.86", "12560.17", 1730787599999, "969414430.35", 2723726, "6168.77", "476386511.87", "0"]
+  ],
+  "premium:BTCUSDT": {
+    "symbol": "BTCUSDT",
+    "markPrice": "77460.10",
+    "indexPrice": "77451.20",
+    "lastFundingRate": "0.00010000",
+    "nextFundingTime": 1730803200000
+  },
+  "oi:BTCUSDT": {
+    "symbol": "BTCUSDT",
+    "openInterest": "81234.56",
+    "time": 1730787600000
+  },
+  "lsr:BTCUSDT": [
+    {
+      "symbol": "BTCUSDT",
+      "longAccount": "0.62",
+      "shortAccount": "0.38",
+      "longShortRatio": "1.63",
+      "timestamp": 1730787600000
+    }
+  ]
+}
