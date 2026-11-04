@@ -1,7 +1,7 @@
 {
-  "_comment": "把 owner 改成你的 GitHub 用户名；repo 名可改；branch 固定 data（采集器每次重写该分支，仓库不会膨胀）",
+  "_comment": "repo 指向已部署的仓库；branch 固定 data（采集器每次重写该分支，仓库不会膨胀）",
   "repo": {
-    "owner": "YOUR_GITHUB_NAME",
+    "owner": "XiRuize",
     "name": "btc-proxy",
     "branch": "data"
   },
