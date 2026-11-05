@@ -1,22 +1,30 @@
 name: collect
 
-# 每 5 分钟抓一次（GitHub 的 cron 最小粒度；实际会排队，常见延迟 1–10 分钟）
+# 定时：每 30 分钟启动一次，进程内连续采 28 分钟（每 5 分钟一轮）。
+# 为什么不在 cron 里写 */5：GitHub 的定时器对 5 分钟粒度很不准（实测 15 小时只跑了 2 次），
+# 改成"少启动、长时间跑"，用 job 内部循环保证 5 分钟粒度。
 on:
   schedule:
-    - cron: "*/5 * * * *"
-  workflow_dispatch: {}      # 手动触发，便于第一次验证
+    - cron: "*/30 * * * *"
+  push:
+    branches: [main]
+    paths:
+      - "scripts/**"
+      - "config.json"
+      - ".github/workflows/**"
+  workflow_dispatch: {}
 
 permissions:
   contents: write
 
 concurrency:
   group: btc-collect
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   collect:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
         with:
@@ -26,8 +34,11 @@ jobs:
         with:
           python-version: "3.12"
 
+      # push 触发的运行只跑一轮（快速验证改动），定时运行连续采 28 分钟
       - name: 采集
-        run: python scripts/collect.py --config config.json --out data
+        run: |
+          LOOP=${{ github.event_name == 'push' && '0' || '28' }}
+          python scripts/collect.py --config config.json --out data --loop-minutes $LOOP
 
       - name: 发布到 data 分支
         shell: bash
@@ -36,7 +47,6 @@ jobs:
           git config user.name  "btc-proxy-bot"
           git config user.email "btc-proxy-bot@users.noreply.github.com"
 
-          # 与上一版 data 分支比对，内容没变就不推（同一 5 分钟窗口内的重复触发）
           if git ls-remote --exit-code origin data >/dev/null 2>&1; then
             git fetch -q origin data
             if git diff --quiet FETCH_HEAD -- data; then
@@ -45,8 +55,7 @@ jobs:
             fi
           fi
 
-          # data 分支只放数据，且每次用孤儿提交重写：
-          # 历史永远只有 1 个 commit，不会因为 288 次/天 的提交而膨胀。
+          # data 分支只放数据，且每次用孤儿提交重写：历史永远 1 个 commit
           git checkout --orphan data-tmp
           git rm -r --cached . -q || true
           git add -f data

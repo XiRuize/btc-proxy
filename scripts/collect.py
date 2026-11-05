@@ -1,20 +1,23 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""币安 5 分钟快照采集器 —— 在 GitHub Actions runner 上运行。
+"""多交易所 5 分钟快照采集器 —— 在 GitHub Actions runner 上运行。
 
-为什么放 Actions 里跑：本机到 api.binance.com 的 DNS 被污染、直连不通，
-而 GitHub 的 runner 在境外可以正常调用；runner 把结果 commit 回仓库，
-本机再通过 raw.githubusercontent.com 读取（该域名已验证可达）。
+背景（2026-11 实测）：
+  * Binance 对 GitHub 机房 IP 返回 HTTP 451（地区封锁），不能用；
+  * 改用美国合规交易所：Coinbase（现货）、Kraken（现货）、Kraken Futures（资金费率/持仓量），
+    它们在 Azure 机房可正常访问，且不需要 API Key。
 
-设计约束：
-  * 只用标准库（runner 上不装任何包，减少失败面）
-  * 增量追加 + 按时间戳去重，重复运行不会写重复行
-  * 单个币种/单个接口失败不拖垮整轮，状态写进 status.json
-  * 只写"已收盘"的 K 线，避免半根 bar 混进数据
+设计：
+  * 只用标准库（runner 上不装包）；
+  * 每个币种第一次成功用哪个交易所就"钉住"（写进 data/meta.json），之后一直用它，
+    避免同一份 CSV 里混入不同交易所的价格；
+  * 只写已收盘的 bar；按时间戳去重，重复运行不产生重复行；
+  * 单个币种/单个接口失败不拖垮整轮，状态写进 status.json。
 
 用法：
   python scripts/collect.py --config config.json --out data
-  python scripts/collect.py --config config.json --out data --fixtures fixtures/responses.json  # 离线自测
+  python scripts/collect.py --config config.json --out data --fixtures fixtures/responses.json
+  python scripts/collect.py --config config.json --out data --loop-minutes 28   # 持续采集
 """
 from __future__ import annotations
 
@@ -24,7 +27,6 @@ import json
 import os
 import sys
 import time
-import urllib.error
 import urllib.request
 from datetime import datetime, timezone
 
@@ -35,20 +37,19 @@ except Exception:          # noqa: BLE001
 
 FIELDS_KLINE = [
     "open_time_utc", "open", "high", "low", "close", "volume", "quote_volume",
-    "trades", "taker_buy_base", "taker_buy_quote", "close_time_utc", "fetched_at",
+    "trades", "taker_buy_base", "taker_buy_quote", "close_time_utc", "source", "fetched_at",
 ]
 FIELDS_SNAP = [
     "ts_utc", "symbol", "mark_price", "index_price", "funding_rate",
-    "next_funding_time_utc", "open_interest", "long_short_ratio", "fetched_at",
+    "next_funding_time_utc", "open_interest", "long_short_ratio", "source", "fetched_at",
 ]
-UA = "btc-proxy/1.0 (+https://github.com/)"
+UA = "btc-proxy/2.0"
 
 
 # ---------------------------------------------------------------- 基础工具
 
 def iso(ms):
-    """毫秒时间戳 -> ISO8601 UTC 字符串。"""
-    return datetime.fromtimestamp(ms / 1000, tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    return datetime.fromtimestamp(int(ms) / 1000, tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def now_iso():
@@ -63,7 +64,6 @@ def read_csv(path):
 
 
 def write_csv_atomic(path, fields, rows):
-    """先写临时文件再替换，避免 runner 中途被 kill 留下半截文件。"""
     os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
     tmp = path + ".tmp"
     with open(tmp, "w", newline="", encoding="utf-8") as fh:
@@ -75,7 +75,6 @@ def write_csv_atomic(path, fields, rows):
 
 
 def upsert(path, fields, new_rows, key):
-    """按 key 合并去重后排序写回，返回 (总行数, 新增行数)。"""
     existing = read_csv(path)
     merged = {r[key]: r for r in existing}
     before = len(merged)
@@ -86,12 +85,20 @@ def upsert(path, fields, new_rows, key):
     return len(rows), len(rows) - before
 
 
+def load_json(path, default):
+    if not os.path.exists(path):
+        return default
+    try:
+        with open(path, encoding="utf-8") as fh:
+            return json.load(fh)
+    except Exception:  # noqa: BLE001
+        return default
+
+
 # ---------------------------------------------------------------- 取数
 
 class Fetcher:
-    """带重试的 JSON GET；fixtures 提供时完全走离线数据。"""
-
-    def __init__(self, timeout=10, retries=3, fixtures=None):
+    def __init__(self, timeout=15, retries=3, fixtures=None):
         self.timeout = timeout
         self.retries = retries
         self.fixtures = fixtures or {}
@@ -111,113 +118,181 @@ class Fetcher:
                 with urllib.request.urlopen(req, timeout=self.timeout) as resp:
                     body = resp.read().decode("utf-8")
                 return json.loads(body)
-            except Exception as exc:  # noqa: BLE001 - 网络错误类型很多，统一重试
+            except Exception as exc:  # noqa: BLE001
                 last = exc
                 if attempt < self.retries - 1:
                     time.sleep(1.5 * (attempt + 1))
         raise RuntimeError(f"{url} 连续 {self.retries} 次失败: {last}")
 
 
-def parse_klines(payload, symbol, fetched_at):
-    """把 /api/v3/klines 的返回转成行，丢掉尚未收盘的最后一根。"""
+# ---------------------------------------------------------------- 现货适配
+
+def spot_coinbase(cfg, fetcher, bar_sec, backfill):
+    """Coinbase Exchange 公开 K 线：[[time, low, high, open, close, volume], ...]"""
+    product = cfg["coinbase"]
+    url = (f"https://api.exchange.coinbase.com/products/{product}/candles"
+           f"?granularity={bar_sec}")
+    data = fetcher.get(f"coinbase:{product}", url)
+    if not isinstance(data, list):
+        raise RuntimeError(f"Coinbase 返回异常: {str(data)[:120]}")
+    now = int(time.time())
     rows = []
-    now_ms = int(time.time() * 1000)
-    for k in payload:
-        open_time, close_time = int(k[0]), int(k[6])
-        if close_time > now_ms:      # 仍在走的那根，跳过
+    for t, low, high, open_, close, vol in data:
+        t = int(t)
+        if t + bar_sec > now:          # 未收盘
             continue
         rows.append({
-            "open_time_utc": iso(open_time),
-            "open": k[1], "high": k[2], "low": k[3], "close": k[4],
-            "volume": k[5], "quote_volume": k[7], "trades": k[8],
-            "taker_buy_base": k[9], "taker_buy_quote": k[10],
-            "close_time_utc": iso(close_time),
-            "fetched_at": fetched_at,
+            "open_time_utc": iso(t * 1000),
+            "open": open_, "high": high, "low": low, "close": close,
+            "volume": vol, "quote_volume": "", "trades": "",
+            "taker_buy_base": "", "taker_buy_quote": "",
+            "close_time_utc": iso((t + bar_sec) * 1000 - 1000),
+            "source": "coinbase",
         })
-    return rows
+    rows.sort(key=lambda r: r["open_time_utc"])
+    return rows[-backfill:] if backfill else rows
 
 
-def build_snapshot(symbol, premium, oi, lsr, fetched_at):
-    """把三个合约接口拼成一行快照；任一缺失就留空，不整行丢弃。"""
-    def pick(obj, *names):
-        if not isinstance(obj, dict):
-            return ""
-        for n in names:
-            if n in obj and obj[n] not in (None, ""):
-                return obj[n]
-        return ""
+def spot_kraken(cfg, fetcher, bar_sec, backfill):
+    """Kraken OHLC：result[pair] = [[time, open, high, low, close, vwap, volume, count], ...]"""
+    pair = cfg["kraken"]
+    url = f"https://api.kraken.com/0/public/OHLC?pair={pair}&interval={bar_sec // 60}"
+    data = fetcher.get(f"kraken:{pair}", url)
+    if not isinstance(data, dict) or data.get("error"):
+        raise RuntimeError(f"Kraken 返回异常: {str(data)[:120]}")
+    series = next((v for k, v in data["result"].items() if k != "last"), None)
+    if not series:
+        raise RuntimeError("Kraken 结果为空")
+    now = int(time.time())
+    rows = []
+    for item in series:
+        t = int(item[0])
+        if t + bar_sec > now:
+            continue
+        rows.append({
+            "open_time_utc": iso(t * 1000),
+            "open": item[1], "high": item[2], "low": item[3], "close": item[4],
+            "volume": item[6], "quote_volume": "", "trades": item[7],
+            "taker_buy_base": "", "taker_buy_quote": "",
+            "close_time_utc": iso((t + bar_sec) * 1000 - 1000),
+            "source": "kraken",
+        })
+    rows.sort(key=lambda r: r["open_time_utc"])
+    return rows[-backfill:] if backfill else rows
 
-    ts = ""
-    if isinstance(lsr, list) and lsr:
-        ts = iso(int(lsr[0].get("timestamp", 0)) or int(time.time() * 1000))
-    if not ts:
-        ts = iso(int(oi.get("time", 0)) or int(time.time() * 1000))
 
+SPOT = {"coinbase": spot_coinbase, "kraken": spot_kraken}
+
+
+# ---------------------------------------------------------------- 合约适配
+
+def deriv_kraken_futures(cfg, fetcher):
+    """Kraken Futures tickers 含 markPrice / indexPrice / fundingRate / openInterest。"""
+    sym = cfg["kraken_fut"]
+    data = fetcher.get("kraken_futures:tickers", "https://futures.kraken.com/derivatives/api/v3/tickers")
+    tickers = data.get("tickers") if isinstance(data, dict) else None
+    if not tickers:
+        raise RuntimeError(f"Kraken Futures 返回异常: {str(data)[:120]}")
+    hit = next((t for t in tickers if t.get("symbol") == sym), None)
+    if not hit:
+        raise RuntimeError(f"Kraken Futures 找不到 {sym}")
     return {
-        "ts_utc": ts,
-        "symbol": symbol,
-        "mark_price": pick(premium, "markPrice"),
-        "index_price": pick(premium, "indexPrice"),
-        "funding_rate": pick(premium, "lastFundingRate"),
-        "next_funding_time_utc": iso(int(premium["nextFundingTime"])) if premium.get("nextFundingTime") else "",
-        "open_interest": pick(oi, "openInterest"),
-        "long_short_ratio": pick(lsr[0], "longShortRatio") if isinstance(lsr, list) and lsr else "",
-        "fetched_at": fetched_at,
+        "ts_utc": now_iso()[:17] + "00Z",          # 对齐到分钟
+        "symbol": cfg["name"],
+        "mark_price": hit.get("markPrice", ""),
+        "index_price": hit.get("indexPrice", ""),
+        "funding_rate": hit.get("fundingRate", ""),
+        "next_funding_time_utc": "",
+        "open_interest": hit.get("openInterest", ""),
+        "long_short_ratio": "",
+        "source": "kraken_futures",
+    }
+
+
+DERIV = {"kraken_futures": deriv_kraken_futures}
+
+
+def derive_snapshot_from_spot(row_spot, name):
+    """合约接口全挂时的兜底：用现货收盘价当 mark，保证时间轴不断。"""
+    if not row_spot:
+        return None
+    return {
+        "ts_utc": row_spot["open_time_utc"],
+        "symbol": name,
+        "mark_price": row_spot["close"],
+        "index_price": "",
+        "funding_rate": "",
+        "next_funding_time_utc": "",
+        "open_interest": "",
+        "long_short_ratio": "",
+        "source": "spot_fallback",
     }
 
 
 # ---------------------------------------------------------------- 主流程
 
-def collect_one(sym, cfg, fetcher, out_dir, status):
-    fetched_at = now_iso()
-    spot = cfg["spot_base"].rstrip("/")
-    fut = cfg["futures_base"].rstrip("/")
-    interval = cfg.get("kline_interval", "5m")
+def collect_one(cfg, venues, fetcher, out_dir, meta, status):
+    name = cfg["name"]
+    bar_sec = int(cfg.get("_bar_seconds", 300))
+    backfill = 0 if meta["venue"].get(name) else int(cfg.get("_backfill_bars", 288))
 
-    kline_path = os.path.join(out_dir, f"{sym}_5m.csv")
-    snap_path = os.path.join(out_dir, f"{sym}_snapshot_5m.csv")
-    info = {"symbol": sym}
+    info = {"symbol": name}
+    kline_path = os.path.join(out_dir, f"{name}_5m.csv")
+    snap_path = os.path.join(out_dir, f"{name}_snapshot_5m.csv")
 
-    # 1) K 线：首次运行回补若干天，之后只取最新 2 根
-    have_rows = len(read_csv(kline_path))
-    limit = 1000 if have_rows == 0 else 2
-    if have_rows == 0:
-        days = int(cfg.get("backfill_days", 3))
-        limit = min(1000, max(3, days * 288))
-    try:
-        payload = fetcher.get(f"klines:{sym}", f"{spot}/api/v3/klines?symbol={sym}&interval={interval}&limit={limit}")
-        rows = parse_klines(payload, sym, fetched_at)
-        total, added = upsert(kline_path, FIELDS_KLINE, rows, "open_time_utc")
-        info.update(kline_rows=total, kline_added=added, kline_last=rows[-1]["open_time_utc"] if rows else "")
-    except Exception as exc:  # noqa: BLE001
-        info["kline_error"] = str(exc)
-        status["errors"].append(f"{sym} kline: {exc}")
+    pinned = meta["venue"].get(name)
+    # 已钉住就只试这一家：宁可留缺口，也不让同一份 CSV 混入两家交易所的价格
+    order = [pinned] if pinned else list(venues["spot"])
+    rows, used = [], None
+    for venue in order:
+        try:
+            rows = SPOT[venue](cfg, fetcher, bar_sec, backfill)
+            if rows:
+                used = venue
+                break
+            info.setdefault("spot_notes", []).append(f"{venue}: 返回 0 行")
+        except Exception as exc:  # noqa: BLE001
+            info.setdefault("spot_errors", []).append(f"{venue}: {exc}")
+            status["errors"].append(f"{name} spot/{venue}: {exc}")
 
-    # 2) 合约快照：标记价 / 资金费率 / 持仓量 / 大户多空比
-    try:
-        premium = fetcher.get(f"premium:{sym}", f"{fut}/fapi/v1/premiumIndex?symbol={sym}")
-        oi = fetcher.get(f"oi:{sym}", f"{fut}/fapi/v1/openInterest?symbol={sym}")
-        lsr_raw = fetcher.get(
-            f"lsr:{sym}",
-            f"{fut}/futures/data/globalLongShortAccountRatio?symbol={sym}&period=5m&limit=1",
-        )
-        if isinstance(lsr_raw, dict):          # 接口报错时返回 {"code":..., "msg":...}
-            lsr_raw = []
-        row = build_snapshot(sym, premium, oi, lsr_raw, fetched_at)
-        total, added = upsert(snap_path, FIELDS_SNAP, [row], "ts_utc")
-        info.update(snapshot_rows=total, snapshot_added=added, snapshot_last=row["ts_utc"])
-    except Exception as exc:  # noqa: BLE001
-        info["snapshot_error"] = str(exc)
-        status["errors"].append(f"{sym} snapshot: {exc}")
+    if not used:
+        info["kline_error"] = "所有现货源均失败"
+        status["errors"].append(f"{name}: 所有现货源均失败")
+        return info
 
+    meta["venue"][name] = used
+    total, added = upsert(kline_path, FIELDS_KLINE, rows, "open_time_utc")
+    info.update(kline_rows=total, kline_added=added, kline_source=used,
+                kline_last=rows[-1]["open_time_utc"])
+
+    made = False
+    for venue in venues["deriv"]:
+        try:
+            row = DERIV[venue](cfg, fetcher)
+            total_s, added_s = upsert(snap_path, FIELDS_SNAP, [row], "ts_utc")
+            info.update(snapshot_rows=total_s, snapshot_added=added_s,
+                        snapshot_source=venue, snapshot_last=row["ts_utc"])
+            made = True
+            break
+        except Exception as exc:  # noqa: BLE001
+            info.setdefault("deriv_errors", []).append(f"{venue}: {exc}")
+            status["errors"].append(f"{name} deriv/{venue}: {exc}")
+
+    if not made:
+        row = derive_snapshot_from_spot(rows[-1], name)
+        if row:
+            total_s, added_s = upsert(snap_path, FIELDS_SNAP, [row], "ts_utc")
+            info.update(snapshot_rows=total_s, snapshot_added=added_s,
+                        snapshot_source="spot_fallback", snapshot_last=row["ts_utc"])
     return info
 
 
 def main(argv=None):
-    ap = argparse.ArgumentParser(description="币安 5 分钟快照采集器")
+    ap = argparse.ArgumentParser(description="多交易所 5 分钟快照采集器")
     ap.add_argument("--config", default="config.json")
     ap.add_argument("--out", default="data")
     ap.add_argument("--fixtures", help="离线自测用的 JSON 响应包")
+    ap.add_argument("--loop-minutes", type=float, default=None, help="持续采集多少分钟（0=只跑一轮）")
     args = ap.parse_args(argv)
 
     with open(args.config, encoding="utf-8") as fh:
@@ -230,45 +305,68 @@ def main(argv=None):
 
     os.makedirs(args.out, exist_ok=True)
     fetcher = Fetcher(
-        timeout=cfg.get("timeout_sec", 10),
+        timeout=cfg.get("timeout_sec", 15),
         retries=cfg.get("retries", 3),
         fixtures=fixtures,
     )
 
-    started = now_iso()
-    status = {"started_at": started, "ok": [], "errors": [], "symbols": {}}
+    bar_seconds = int(cfg.get("bar_seconds", 300))
+    for s in cfg["symbols"]:
+        s["_bar_seconds"] = bar_seconds
+        s["_backfill_bars"] = int(cfg.get("backfill_bars", 288))
 
-    for sym in cfg["symbols"]:
-        info = collect_one(sym, cfg, fetcher, args.out, status)
-        status["symbols"][sym] = info
-        status["ok"].append(sym)
+    meta_path = os.path.join(args.out, "meta.json")
+    meta = load_json(meta_path, {"venue": {}})
+    meta.setdefault("venue", {})
 
-    status["finished_at"] = now_iso()
-    status["http_calls"] = fetcher.calls
-    status["partially_failed"] = bool(status["errors"])
+    loop_minutes = args.loop_minutes if args.loop_minutes is not None else float(cfg.get("loop_minutes", 0))
+    deadline = time.time() + loop_minutes * 60
 
-    # latest.json：给本机一个"一眼看当前价"的入口
-    latest = {
-        "generated_at": status["finished_at"],
-        "symbols": {},
-    }
-    for sym in cfg["symbols"]:
-        rows = read_csv(os.path.join(args.out, f"{sym}_snapshot_5m.csv"))
-        if rows:
-            latest["symbols"][sym] = rows[-1]
-            krows = read_csv(os.path.join(args.out, f"{sym}_5m.csv"))
+    rounds = 0
+    status = {}
+    while True:
+        rounds += 1
+        status = {"round": rounds, "started_at": now_iso(), "errors": [], "symbols": {}}
+        for sym_cfg in cfg["symbols"]:
+            status["symbols"][sym_cfg["name"]] = collect_one(
+                sym_cfg, cfg["venues"], fetcher, args.out, meta, status)
+
+        status["finished_at"] = now_iso()
+        status["http_calls"] = fetcher.calls
+        status["partially_failed"] = bool(status["errors"])
+        status["venue"] = meta["venue"]
+
+        latest = {"generated_at": status["finished_at"], "symbols": {}}
+        for sym_cfg in cfg["symbols"]:
+            name = sym_cfg["name"]
+            krows = read_csv(os.path.join(args.out, f"{name}_5m.csv"))
+            srows = read_csv(os.path.join(args.out, f"{name}_snapshot_5m.csv"))
+            entry = {}
             if krows:
-                latest["symbols"][sym]["last_close"] = krows[-1]["close"]
-                latest["symbols"][sym]["last_bar"] = krows[-1]["open_time_utc"]
+                entry.update(last_close=krows[-1]["close"], last_bar=krows[-1]["open_time_utc"],
+                             source=krows[-1]["source"])
+            if srows:
+                entry.update(mark_price=srows[-1]["mark_price"],
+                             funding_rate=srows[-1]["funding_rate"],
+                             open_interest=srows[-1]["open_interest"])
+            if entry:
+                latest["symbols"][name] = entry
 
-    for name, obj in (("status.json", status), ("latest.json", latest)):
-        with open(os.path.join(args.out, name), "w", encoding="utf-8") as fh:
-            json.dump(obj, fh, ensure_ascii=False, indent=2)
-            fh.write("\n")
+        for fname, obj in (("status.json", status), ("latest.json", latest), ("meta.json", meta)):
+            with open(os.path.join(args.out, fname), "w", encoding="utf-8") as fh:
+                json.dump(obj, fh, ensure_ascii=False, indent=2)
+                fh.write("\n")
 
-    print(json.dumps(status, ensure_ascii=False, indent=2))
-    # 全失败才返回非 0，让 workflow 变红但仍保留已抓到的部分
-    return 0 if status["ok"] else 1
+        print(json.dumps(status, ensure_ascii=False, indent=2))
+
+        if time.time() + bar_seconds > deadline:
+            break
+        sleep_for = bar_seconds - (time.time() % bar_seconds) + 5
+        if time.time() + sleep_for > deadline:
+            break
+        time.sleep(sleep_for)
+
+    return 0 if all(s.get("kline_rows") for s in status.get("symbols", {}).values()) else 1
 
 
 if __name__ == "__main__":

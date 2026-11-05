@@ -1,16 +1,24 @@
 {
-  "_comment": "repo 指向已部署的仓库；branch 固定 data（采集器每次重写该分支，仓库不会膨胀）",
+  "_comment": "repo 指向已部署的仓库；branch 固定 data；symbols 里是各交易所的合约代码",
   "repo": {
     "owner": "XiRuize",
     "name": "btc-proxy",
     "branch": "data"
   },
-  "symbols": ["BTCUSDT", "ETHUSDT", "SOLUSDT"],
-  "spot_base": "https://api.binance.com",
-  "futures_base": "https://fapi.binance.com",
+  "symbols": [
+    { "name": "BTCUSDT", "coinbase": "BTC-USD", "kraken": "XBTUSD", "kraken_fut": "PF_XBTUSD" },
+    { "name": "ETHUSDT", "coinbase": "ETH-USD", "kraken": "ETHUSD", "kraken_fut": "PF_ETHUSD" },
+    { "name": "SOLUSDT", "coinbase": "SOL-USD", "kraken": "SOLUSD", "kraken_fut": "PF_SOLUSD" }
+  ],
+  "venues": {
+    "spot": ["coinbase", "kraken"],
+    "deriv": ["kraken_futures"]
+  },
   "kline_interval": "5m",
-  "backfill_days": 3,
-  "timeout_sec": 10,
+  "bar_seconds": 300,
+  "backfill_bars": 288,
+  "timeout_sec": 15,
   "retries": 3,
+  "loop_minutes": 0,
   "local_output": "../parquet/crypto"
 }
