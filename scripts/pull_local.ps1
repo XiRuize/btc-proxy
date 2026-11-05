@@ -6,9 +6,11 @@
 # 用法：
 #   powershell -ExecutionPolicy Bypass -File scripts\pull_local.ps1
 #   powershell -ExecutionPolicy Bypass -File scripts\pull_local.ps1 -Out "D:\data\crypto"
+#   powershell -ExecutionPolicy Bypass -File scripts\pull_local.ps1 -WithHistory   # 连历史归档一起拉
 
 param(
-    [string]$Out = ""
+    [string]$Out = "",
+    [switch]$WithHistory
 )
 
 $ErrorActionPreference = "Stop"
@@ -68,6 +70,25 @@ try {
             Write-Host ("  {0}: 收盘 {1}  标记价 {2}  资金费率 {3}  持仓量 {4}" -f `
                 $p.Name, $s.last_close, $s.mark_price, $s.funding_rate, $s.open_interest)
         }
+    }
+    if ($WithHistory) {
+        Write-Host "`n拉取 history 分支（全量归档）..."
+        git fetch --quiet origin history
+        if ($LASTEXITCODE -ne 0) { throw "history 分支拉取失败" }
+
+        $arc = Join-Path $Out "archive"
+        New-Item -ItemType Directory -Path $arc -Force | Out-Null
+        $tar = Join-Path $Out "_history.tar"
+        git archive --format=tar -o $tar FETCH_HEAD
+        if ($LASTEXITCODE -ne 0) { throw "git archive 失败" }
+        tar -xf $tar -C $arc --strip-components=1
+        Remove-Item $tar -Force
+
+        Get-ChildItem $arc -File | ForEach-Object {
+            Write-Host ("  {0,-26} {1,8:N1} MB" -f $_.Name, ($_.Length / 1MB))
+        }
+        $total = (Get-ChildItem $arc -File | Measure-Object Length -Sum).Sum / 1MB
+        Write-Host ("  合计 {0:N1} MB，位于 {1}" -f $total, $arc)
     }
 }
 finally {

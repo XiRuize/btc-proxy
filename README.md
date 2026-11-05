@@ -43,9 +43,32 @@ btc-proxy/
   scripts/pull_local.ps1         # 本机拉取（走 SSH，推荐）
   scripts/pull_local.py          # 本机拉取（走 HTTPS raw，备用；本机 shell 的 TLS 受限时用不了）
   scripts/bootstrap_history.py   # 历史回补（data.binance.vision，本机直连）
+  scripts/build_archive.py       # 瘦身打包（59 MB -> 可上传 GitHub）
+  scripts/check_5m.py            # 5 分钟归档的流式质量校验
+  scripts/clean_crypto.py        # 清洗/校验（产出 clean/ 与质量报告）
   fixtures/responses.json        # 离线样例
   data/                          # 运行产物，被推到 data 分支
 ```
+
+## 3.5 仓库的三个分支
+
+| 分支 | 放什么 | 更新方式 | 体积 |
+|---|---|---|---|
+| `main` | 采集器代码、workflow、文档 | `git push` | 小 |
+| `data` | 最近 1–2 天的 5 分钟增量 + 合约快照 | Actions 每 5 分钟重写（孤儿提交） | 小 |
+| `history` | **全量历史归档**：5m / 1d / 资金费率 | 手动，按月 | **59 MB** |
+
+`history` 分支内容：
+
+| 文件 | 行数 |
+|---|---|
+| `BTCUSDT_5m.csv.gz` / `ETHUSDT_5m.csv.gz` | 各 967,945 |
+| `SOLUSDT_5m.csv.gz` | 655,421 |
+| `{SYM}_1d.csv.gz` | 3,367 / 3,367 / 2,277 |
+| `{SYM}_funding.csv.gz` | 7,488 / 7,488 / 6,793 |
+
+为什么 5 分钟要瘦身：9 年 97 万行，原始 CSV.gz 有 50 MB/币种；只保留 7 列、价格 2 位小数后降到 23 MB。
+`open_time` 保留原始值（**2025 年后是微秒**），读取时要按位数归一。
 
 ## 4. 数据契约
 
