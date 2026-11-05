@@ -1,0 +1,83 @@
+{
+  "generated_from": "C:\\Users\\生升\\Desktop\\未来\\量化研究\\数据源\\parquet\\crypto\\history",
+  "files": {
+    "BTCUSDT_5m.csv.gz": {
+      "rows": 967945,
+      "bytes": 23384498,
+      "sha256": "7e751587b0f31a27bff24d0502871057dd36bf28a9bcc335c3e4701b94281451",
+      "first_ts": 1502942400000,
+      "last_ts": 1793836500000000,
+      "columns": [
+        "open_time",
+        "open",
+        "high",
+        "low",
+        "close",
+        "volume",
+        "taker_buy_base"
+      ]
+    },
+    "BTCUSDT_1d.csv.gz": {
+      "rows": 3367,
+      "bytes": 215435,
+      "sha256": "c9b1b0f1d4e1f0bdd4860a583d59314106863c9b568e6f178b2c10d25dcb016f"
+    },
+    "BTCUSDT_funding.csv.gz": {
+      "rows": 7488,
+      "bytes": 47767,
+      "sha256": "67324cbd1b5f5261bd850c3ea924b66cba3bbf58928f74ac9d041ceaf10aa1f6"
+    },
+    "ETHUSDT_5m.csv.gz": {
+      "rows": 967945,
+      "bytes": 22212332,
+      "sha256": "6ceb893b30d4f2b64615137ec29bb6e2afe3dbefde6eb74ea25655390ec64c63",
+      "first_ts": 1502942400000,
+      "last_ts": 1793836500000000,
+      "columns": [
+        "open_time",
+        "open",
+        "high",
+        "low",
+        "close",
+        "volume",
+        "taker_buy_base"
+      ]
+    },
+    "ETHUSDT_1d.csv.gz": {
+      "rows": 3367,
+      "bytes": 204151,
+      "sha256": "332be2fee7b559fb36086ba5a564ee6b72db17c590d30f4196a8cc2998fc6a07"
+    },
+    "ETHUSDT_funding.csv.gz": {
+      "rows": 7488,
+      "bytes": 47770,
+      "sha256": "a9eb59789e858e29f93142ed5f5ad3e854512e238032466ce28bd1b17493b9af"
+    },
+    "SOLUSDT_5m.csv.gz": {
+      "rows": 655421,
+      "bytes": 12762998,
+      "sha256": "727fa393451618758548f5f0e1a57263bc3b91b99c94fddd2ac19fda15bfc3dc",
+      "first_ts": 1597125600000,
+      "last_ts": 1793836500000000,
+      "columns": [
+        "open_time",
+        "open",
+        "high",
+        "low",
+        "close",
+        "volume",
+        "taker_buy_base"
+      ]
+    },
+    "SOLUSDT_1d.csv.gz": {
+      "rows": 2277,
+      "bytes": 125471,
+      "sha256": "5cac7590f725adc3b4cb1c9848fb16e946627d2e194c32c7a7948567c4b69bc1"
+    },
+    "SOLUSDT_funding.csv.gz": {
+      "rows": 6793,
+      "bytes": 44245,
+      "sha256": "662fbbcec4db40a51ce747bbf01927bcd35fc8d89ed5cb16c1b022aba25548f4"
+    }
+  }
+}
