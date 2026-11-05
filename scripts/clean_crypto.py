@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import gzip
 import json
 import math
 import os
@@ -42,8 +43,16 @@ SYMBOLS = ["BTCUSDT", "ETHUSDT", "SOLUSDT"]
 # ---------------------------------------------------------------- IO
 
 def read_rows(path):
-    with open(path, newline="", encoding="utf-8") as fh:
+    opener = gzip.open if path.endswith(".gz") else open
+    with opener(path, "rt", encoding="utf-8", newline="") as fh:
         return list(csv.DictReader(fh))
+
+
+def first_existing(*paths):
+    for p in paths:
+        if os.path.exists(p):
+            return p
+    return None
 
 
 def write_rows(path, fields, rows):
@@ -186,27 +195,39 @@ def daily_funding(funding_rows):
 # ---------------------------------------------------------------- 5 分钟
 
 def clean_5m(raw_path, bar_sec=300):
+    """兼容两种来源：Actions 采集的（ts_utc, 含 source）与历史归档的（open_time 毫秒/微秒）。"""
     rows = read_rows(raw_path)
-    issues = {"duplicates": 0, "bad_ohlc": 0, "gaps": 0}
+    issues = {"duplicates": 0, "bad_ohlc": 0, "gaps": 0, "bad_timestamp": 0}
     seen, out = set(), []
 
     for r in rows:
-        key = r["open_time_utc"]
+        if r.get("ts_utc"):
+            key = r["ts_utc"]
+        elif r.get("open_time"):
+            try:
+                key = ms_to_dt(r["open_time"]).strftime("%Y-%m-%dT%H:%M:%SZ")
+            except Exception:  # noqa: BLE001
+                issues["bad_timestamp"] += 1
+                continue
+        else:
+            issues["bad_timestamp"] += 1
+            continue
+
         if key in seen:
             issues["duplicates"] += 1
             continue
         o, h, l, c = f(r["open"]), f(r["high"]), f(r["low"]), f(r["close"])
-        if any(math.isnan(x) for x in (o, h, l, c)) or h < l:
+        if any(math.isnan(x) for x in (o, h, l, c)) or h < l or h < max(o, c) - 1e-9:
             issues["bad_ohlc"] += 1
             continue
         seen.add(key)
         out.append({"ts_utc": key, "open": r["open"], "high": r["high"],
-                    "low": r["low"], "close": r["close"], "volume": r["volume"],
+                    "low": r["low"], "close": r["close"], "volume": r.get("volume", ""),
+                    "taker_buy_base": r.get("taker_buy_base", ""),
                     "source": r.get("source", "")})
 
     out.sort(key=lambda r: r["ts_utc"])
 
-    # 缺口
     if len(out) >= 2:
         t0 = datetime.strptime(out[0]["ts_utc"], "%Y-%m-%dT%H:%M:%SZ")
         t1 = datetime.strptime(out[-1]["ts_utc"], "%Y-%m-%dT%H:%M:%SZ")
@@ -234,8 +255,9 @@ def main(argv=None):
 
     for sym in SYMBOLS:
         info = {}
-        d_path = os.path.join(root, "history", f"{sym}_1d.csv")
-        if os.path.exists(d_path):
+        d_path = first_existing(os.path.join(root, "history", f"{sym}_1d.csv.gz"),
+                                os.path.join(root, "history", f"{sym}_1d.csv"))
+        if d_path:
             rows, issues = clean_daily(d_path)
             write_rows(os.path.join(out_dir, f"{sym}_1d.csv"),
                        ["date", "open", "high", "low", "close", "volume", "quote_volume", "trades"],
@@ -255,11 +277,14 @@ def main(argv=None):
                                "range": [rows[0]["ts_utc"][:10], rows[-1]["ts_utc"][:10]] if rows else [],
                                "daily_rows": len(d_rows), **issues}
 
-        m_path = os.path.join(root, f"{sym}_5m.csv")
-        if os.path.exists(m_path):
+        m_path = first_existing(os.path.join(root, "history", f"{sym}_5m.csv.gz"),
+                                os.path.join(root, "history", f"{sym}_5m.csv"),
+                                os.path.join(root, f"{sym}_5m.csv"))
+        if m_path:
             rows, issues = clean_5m(m_path)
             write_rows(os.path.join(out_dir, f"{sym}_5m.csv"),
-                       ["ts_utc", "open", "high", "low", "close", "volume", "source"], rows)
+                       ["ts_utc", "open", "high", "low", "close", "volume",
+                        "taker_buy_base", "source"], rows)
             info["m5"] = {"rows": len(rows),
                           "range": [rows[0]["ts_utc"], rows[-1]["ts_utc"]] if rows else [],
                           **issues}
