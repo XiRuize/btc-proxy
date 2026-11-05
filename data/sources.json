@@ -1,0 +1,355 @@
+{
+  "probed_at": "2026-11-05T15:11:31Z",
+  "results": {
+    "mempool.space": {
+      "ok": true,
+      "status": 200,
+      "ms": 446,
+      "ctype": "text/plain",
+      "sample": "974677",
+      "kind": "onchain",
+      "url": "https://mempool.space/api/blocks/tip/height",
+      "note": "区块高度，无需 key"
+    },
+    "blockchain.info": {
+      "ok": true,
+      "status": 200,
+      "ms": 60,
+      "ctype": "application/json; charset=utf-8",
+      "sample": "{\"timestamp\":1.793891326E12,\"market_price_usd\":79611.27,\"hash_rate\":1.0104081993447893E12,\"total_fees_btc\":-42812500000,\"n_btc_mined\":42812500000,\"n_tx\":547279,",
+      "kind": "onchain",
+      "url": "https://api.blockchain.info/stats",
+      "note": "链上统计（算力/手续费/交易数）"
+    },
+    "blockchair": {
+      "ok": true,
+      "status": 200,
+      "ms": 654,
+      "ctype": "application/json",
+      "sample": "{\"data\":{\"blocks\":974678,\"transactions\":1474894703,\"outputs\":4005078027,\"circulation\":2010833979155096,\"blocks_24h\":137,\"transactions_24h\":547279,\"difficulty\":1",
+      "kind": "onchain",
+      "url": "https://api.blockchair.com/bitcoin/stats",
+      "note": "地址/交易统计"
+    },
+    "coinmetrics-community": {
+      "ok": false,
+      "status": 400,
+      "ms": 266,
+      "error": "HTTP 400",
+      "kind": "onchain",
+      "url": "https://community-api.coinmetrics.io/v4/timeseries/asset-metrics?assets=btc&metrics=PriceUSD,AdrActCnt&limit=2",
+      "note": "免费社区版，含活跃地址"
+    },
+    "blockstream-esplora": {
+      "ok": true,
+      "status": 200,
+      "ms": 107,
+      "ctype": "text/plain",
+      "sample": "974677",
+      "kind": "onchain",
+      "url": "https://blockstream.info/api/blocks/tip/height",
+      "note": "Esplora API"
+    },
+    "mempool-fees": {
+      "ok": true,
+      "status": 200,
+      "ms": 173,
+      "ctype": "application/json; charset=utf-8",
+      "sample": "{\"fastestFee\":7,\"halfHourFee\":6,\"hourFee\":5,\"economyFee\":2,\"minimumFee\":1}",
+      "kind": "onchain",
+      "url": "https://mempool.space/api/v1/fees/recommended",
+      "note": "手续费档位"
+    },
+    "deribit": {
+      "ok": false,
+      "status": 0,
+      "ms": 12070,
+      "error": "The read operation timed out",
+      "kind": "deriv",
+      "url": "https://www.deribit.com/api/v2/public/get_index_price?index_name=btc_usd",
+      "note": "期权/永续，IV 与持仓"
+    },
+    "kraken-futures": {
+      "ok": true,
+      "status": 200,
+      "ms": 196,
+      "ctype": "application/json",
+      "sample": "{\"result\":\"success\",\"serverTime\":\"2026-11-05T15:10:49.497Z\",\"tickers\":[{\"symbol\":\"PF_PENGUUSD\",\"last\":0.006761,\"lastTime\":\"2026-11-05T15:10:44.187407002Z\",\"tag\"",
+      "kind": "deriv",
+      "url": "https://futures.kraken.com/derivatives/api/v3/tickers",
+      "note": "已在用：资金费率/持仓量"
+    },
+    "bybit": {
+      "ok": false,
+      "status": 403,
+      "ms": 53,
+      "error": "HTTP 403",
+      "kind": "deriv",
+      "url": "https://api.bybit.com/v5/market/tickers?category=linear&symbol=BTCUSDT",
+      "note": "常封美国 IP"
+    },
+    "okx": {
+      "ok": true,
+      "status": 200,
+      "ms": 191,
+      "ctype": "application/json;charset=UTF-8",
+      "sample": "{\"code\":\"0\",\"data\":[{\"ts\":\"1793891449760\"}],\"msg\":\"\"}",
+      "kind": "deriv",
+      "url": "https://www.okx.com/api/v5/public/time",
+      "note": "常封美国 IP"
+    },
+    "binance-fapi": {
+      "ok": false,
+      "status": 451,
+      "ms": 81,
+      "error": "HTTP 451",
+      "kind": "deriv",
+      "url": "https://fapi.binance.com/fapi/v1/premiumIndex?symbol=BTCUSDT",
+      "note": "已知 451"
+    },
+    "coinglass": {
+      "ok": true,
+      "status": 200,
+      "ms": 658,
+      "ctype": "application/json",
+      "sample": "{\"code\":\"30001\",\"msg\":\"API key missing.\",\"success\":false}",
+      "kind": "deriv",
+      "url": "https://open-api.coinglass.com/public/v2/liquidation_history?symbol=BTC",
+      "note": "清算数据，需 key"
+    },
+    "okx-longshort": {
+      "ok": true,
+      "status": 200,
+      "ms": 153,
+      "ctype": "application/json;charset=UTF-8",
+      "sample": "{\"code\":\"0\",\"data\":[[\"1793891100000\",\"1.89\"],[\"1793890800000\",\"1.85\"],[\"1793890500000\",\"1.8\"],[\"1793890200000\",\"1.73\"],[\"1793889900000\",\"1.7\"],[\"1793889600000\",",
+      "kind": "deriv",
+      "url": "https://www.okx.com/api/v5/rubik/stat/contracts/long-short-account-ratio?ccy=BTC&period=5m",
+      "note": "多空账户比，替代币安 451"
+    },
+    "okx-oi": {
+      "ok": true,
+      "status": 200,
+      "ms": 141,
+      "ctype": "application/json;charset=UTF-8",
+      "sample": "{\"code\":\"0\",\"data\":[{\"instId\":\"BTC-USDT-SWAP\",\"instType\":\"SWAP\",\"oi\":\"3302379.41000001611\",\"oiCcy\":\"33023.7941000001611\",\"oiUsd\":\"2543703973.86425240895304\",\"ts",
+      "kind": "deriv",
+      "url": "https://www.okx.com/api/v5/public/open-interest?instId=BTC-USDT-SWAP",
+      "note": "持仓量"
+    },
+    "okx-funding": {
+      "ok": true,
+      "status": 200,
+      "ms": 132,
+      "ctype": "application/json;charset=UTF-8",
+      "sample": "{\"code\":\"0\",\"data\":[{\"formulaType\":\"withRate\",\"fundingRate\":\"0.0001000000000000\",\"fundingTime\":\"1793894400000\",\"impactValue\":\"20000.0000000000000000\",\"instId\":\"",
+      "kind": "deriv",
+      "url": "https://www.okx.com/api/v5/public/funding-rate?instId=BTC-USDT-SWAP",
+      "note": "资金费率"
+    },
+    "deribit-dvol": {
+      "ok": false,
+      "status": 0,
+      "ms": 12039,
+      "error": "The read operation timed out",
+      "kind": "deriv",
+      "url": "https://www.deribit.com/api/v2/public/get_volatility_index_data?currency=BTC&start_timestamp=1793000000000&end_timestamp=1793836800000&resolution=3600",
+      "note": "DVOL 隐含波动率指数（加密版 VIX）"
+    },
+    "coingecko-global": {
+      "ok": true,
+      "status": 200,
+      "ms": 114,
+      "ctype": "application/json; charset=utf-8",
+      "sample": "{\"data\":{\"active_cryptocurrencies\":22806,\"upcoming_icos\":0,\"ongoing_icos\":49,\"ended_icos\":3376,\"markets\":1525,\"total_market_cap\":{\"btc\":33785060.78409556,\"eth\":",
+      "kind": "venue",
+      "url": "https://api.coingecko.com/api/v3/global",
+      "note": "总市值/占比"
+    },
+    "fng-all": {
+      "ok": true,
+      "status": 200,
+      "ms": 287,
+      "ctype": "application/json",
+      "sample": "{ \t\"name\": \"Fear and Greed Index\", \t\"data\": [ \t\t{ \t\t\t\"value\": \"50\", \t\t\t\"value_classification\": \"Neutral\", \t\t\t\"timestamp\": \"1793836800\", \t\t\t\"time_until_update\": ",
+      "kind": "sentiment",
+      "url": "https://api.alternative.me/fng/?limit=0",
+      "note": "恐慌贪婪全历史"
+    },
+    "coinmetrics-fixed": {
+      "ok": true,
+      "status": 200,
+      "ms": 210,
+      "ctype": "application/json",
+      "sample": "{\"data\":[{\"asset\":\"btc\",\"time\":\"2026-11-04T00:00:00.000000000Z\",\"AdrActCnt\":\"650916\",\"PriceUSD\":\"80487.5875787084\"}],\"next_page_token\":\"0.MjAyNi0xMS0wNFQwMDowMD",
+      "kind": "onchain",
+      "url": "https://community-api.coinmetrics.io/v4/timeseries/asset-metrics?assets=btc&metrics=PriceUSD,AdrActCnt&page_size=1",
+      "note": "社区版指标（含活跃地址）"
+    },
+    "farside-uk": {
+      "ok": true,
+      "status": 200,
+      "ms": 687,
+      "ctype": "text/html; charset=UTF-8",
+      "sample": " <!DOCTYPE html> <html class=\"no-js\" lang=\"en-US\"> <head>     <link rel=\"shortcut icon\" type=\"image/jpg\" href=\"/wp-content/themes/twentytwenty/assets/images/fav",
+      "kind": "etf",
+      "url": "https://farside.co.uk/btc/",
+      "note": "BTC 现货 ETF 每日净流入（HTML 表格）"
+    },
+    "sosovalue": {
+      "ok": false,
+      "status": 0,
+      "ms": 80,
+      "error": "[Errno -2] Name or service not known",
+      "kind": "etf",
+      "url": "https://api.sosovalue.com/api/etf/bitcoin/historical",
+      "note": "ETF 流量 API"
+    },
+    "fred": {
+      "ok": false,
+      "status": 0,
+      "ms": 12031,
+      "error": "The read operation timed out",
+      "kind": "macro",
+      "url": "https://fred.stlouisfed.org/graph/fredgraph.csv?id=DGS10",
+      "note": "美债收益率等（CSV）"
+    },
+    "bis": {
+      "ok": true,
+      "status": 200,
+      "ms": 664,
+      "ctype": "application/xml;charset=UTF-8",
+      "sample": "<?xml version=\"1.0\" encoding=\"UTF-8\"?><message:StructureSpecificData xmlns:ss=\"http://www.sdmx.org/resources/sdmxml/schemas/v2_1/data/structurespecific\" xmlns:f",
+      "kind": "macro",
+      "url": "https://stats.bis.org/api/v1/data/WS_LONG_CPI/M.US/all",
+      "note": "国际清算银行"
+    },
+    "worldbank": {
+      "ok": true,
+      "status": 200,
+      "ms": 135,
+      "ctype": "application/json;charset=utf-8",
+      "sample": "[{\"page\":1,\"pages\":66,\"per_page\":1,\"total\":66,\"sourceid\":\"2\",\"lastupdated\":\"2026-10-08\"},[{\"indicator\":{\"id\":\"NY.GDP.MKTP.CD\",\"value\":\"GDP (current US$)\"},\"coun",
+      "kind": "macro",
+      "url": "https://api.worldbank.org/v2/country/US/indicator/NY.GDP.MKTP.CD?format=json&per_page=1",
+      "note": "世界银行"
+    },
+    "alternative-me-fng": {
+      "ok": true,
+      "status": 200,
+      "ms": 204,
+      "ctype": "application/json",
+      "sample": "{ \t\"name\": \"Fear and Greed Index\", \t\"data\": [ \t\t{ \t\t\t\"value\": \"50\", \t\t\t\"value_classification\": \"Neutral\", \t\t\t\"timestamp\": \"1793836800\", \t\t\t\"time_until_update\": ",
+      "kind": "sentiment",
+      "url": "https://api.alternative.me/fng/?limit=2",
+      "note": "恐慌贪婪指数"
+    },
+    "cryptopanic": {
+      "ok": false,
+      "status": 403,
+      "ms": 73,
+      "error": "HTTP 403",
+      "kind": "sentiment",
+      "url": "https://cryptopanic.com/api/v1/posts/?auth_token=demo&public=true",
+      "note": "新闻聚合，需 key"
+    },
+    "gdelt": {
+      "ok": false,
+      "status": 429,
+      "ms": 11492,
+      "error": "HTTP 429",
+      "kind": "news",
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=bitcoin&mode=artlist&maxrecords=3&format=json",
+      "note": "全球新闻事件库"
+    },
+    "arxiv-qfin": {
+      "ok": true,
+      "status": 200,
+      "ms": 127,
+      "ctype": "application/atom+xml; charset=utf-8",
+      "sample": "<?xml version='1.0' encoding='UTF-8'?> <feed xmlns:opensearch=\"http://a9.com/-/spec/opensearch/1.1/\" xmlns:arxiv=\"http://arxiv.org/schemas/atom\" xmlns=\"http://w",
+      "kind": "academic",
+      "url": "https://export.arxiv.org/api/query?search_query=cat:q-fin.TR&max_results=2",
+      "note": "论文预印本"
+    },
+    "ssrn": {
+      "ok": false,
+      "status": 403,
+      "ms": 83,
+      "error": "HTTP 403",
+      "kind": "academic",
+      "url": "https://papers.ssrn.com/sol3/results.cfm",
+      "note": "工作论文（常反爬）"
+    },
+    "coingecko": {
+      "ok": true,
+      "status": 200,
+      "ms": 90,
+      "ctype": "application/json; charset=utf-8",
+      "sample": "{\"gecko_says\":\"(V3) To the Moon!\"}",
+      "kind": "venue",
+      "url": "https://api.coingecko.com/api/v3/ping",
+      "note": "已知 DNS 污染"
+    },
+    "coinpaprika": {
+      "ok": true,
+      "status": 200,
+      "ms": 84,
+      "ctype": "application/json",
+      "sample": "{\"id\":\"btc-bitcoin\",\"name\":\"Bitcoin\",\"symbol\":\"BTC\",\"rank\":1,\"total_supply\":20108366,\"max_supply\":21000000,\"beta_value\":1.05651,\"first_data_at\":\"2010-07-17T00:0",
+      "kind": "venue",
+      "url": "https://api.coinpaprika.com/v1/tickers/btc-bitcoin",
+      "note": "免费聚合"
+    },
+    "binance-vision": {
+      "ok": true,
+      "status": 200,
+      "ms": 151,
+      "ctype": "text/html",
+      "sample": "<!DOCTYPE html> <html> <head>   <title>Binance Data Collection</title>   <link href=\"bootstrap.min.css\" rel=\"stylesheet\"> </head> <body>   <nav class=\"navbar na",
+      "kind": "venue",
+      "url": "https://data.binance.vision/",
+      "note": "已在用：历史批量"
+    },
+    "coinbase-exchange": {
+      "ok": true,
+      "status": 200,
+      "ms": 29,
+      "ctype": "application/json; charset=utf-8",
+      "sample": "[[1793891400,77054.47,77224.99,77198.95,77057.37,15.98809885],[1793891100,77122.08,77746.22,77744.54,77212.62,192.29880521],[1793890800,77575.45,78206.02,78206.",
+      "kind": "venue",
+      "url": "https://api.exchange.coinbase.com/products/BTC-USD/candles?granularity=300",
+      "note": "已在用：5m 实时"
+    },
+    "eastmoney": {
+      "ok": true,
+      "status": 200,
+      "ms": 1624,
+      "ctype": "application/json; charset=UTF-8",
+      "sample": "{\"rc\":0,\"rt\":4,\"svr\":177622401,\"lt\":2,\"full\":1,\"dlmkts\":\"8,10,128\",\"dsc\":\"0\",\"data\":{\"f43\":368991}}",
+      "kind": "cn",
+      "url": "https://push2.eastmoney.com/api/qt/stock/get?secid=1.000001&fields=f43",
+      "note": "境内财经（浏览器可达）"
+    },
+    "jin10": {
+      "ok": true,
+      "status": 200,
+      "ms": 144,
+      "ctype": "text/html",
+      "sample": "<!DOCTYPE html> <html lang=\"zh\">   <head>     <meta charset=\"utf-8\">     <meta http-equiv=\"X-UA-Compatible\" content=\"IE=edge\">     <meta name=\"description\" cont",
+      "kind": "cn",
+      "url": "https://www.jin10.com/",
+      "note": "快讯"
+    },
+    "wallstreetcn": {
+      "ok": true,
+      "status": 200,
+      "ms": 407,
+      "ctype": "application/json; charset=UTF-8",
+      "sample": "{\"code\":20000,\"message\":\"OK\",\"data\":{\"items\":[{\"article\":null,\"author\":{\"avatar\":\"https://wpimg-wscn.awtmt.com/bc3971d4-2d62-4d54-b1dd-7058c60c6ffa\",\"display_na",
+      "kind": "cn",
+      "url": "https://api-one.wallstcn.com/apiv1/content/lives?channel=global-channel&limit=2",
+      "note": "华尔街见闻快讯"
+    }
+  }
+}
