@@ -47,6 +47,15 @@ SOURCES = [
     ("binance-fapi", "https://fapi.binance.com/fapi/v1/premiumIndex?symbol=BTCUSDT", "deriv", "已知 451"),
     ("coinglass", "https://open-api.coinglass.com/public/v2/liquidation_history?symbol=BTC", "deriv", "清算数据，需 key"),
 
+    # ---- 币安 451 之后的替代（重点验证）----
+    ("okx-longshort", "https://www.okx.com/api/v5/rubik/stat/contracts/long-short-account-ratio?ccy=BTC&period=5m", "deriv", "多空账户比，替代币安 451"),
+    ("okx-oi", "https://www.okx.com/api/v5/public/open-interest?instId=BTC-USDT-SWAP", "deriv", "持仓量"),
+    ("okx-funding", "https://www.okx.com/api/v5/public/funding-rate?instId=BTC-USDT-SWAP", "deriv", "资金费率"),
+    ("deribit-dvol", "https://www.deribit.com/api/v2/public/get_volatility_index_data?currency=BTC&start_timestamp=1793000000000&end_timestamp=1793836800000&resolution=3600", "deriv", "DVOL 隐含波动率指数（加密版 VIX）"),
+    ("coingecko-global", "https://api.coingecko.com/api/v3/global", "venue", "总市值/占比"),
+    ("fng-all", "https://api.alternative.me/fng/?limit=0", "sentiment", "恐慌贪婪全历史"),
+    ("coinmetrics-fixed", "https://community-api.coinmetrics.io/v4/timeseries/asset-metrics?assets=btc&metrics=PriceUSD,AdrActCnt&page_size=1", "onchain", "社区版指标（含活跃地址）"),
+
     # ---- ETF 资金流 ----
     ("farside-uk", "https://farside.co.uk/btc/", "etf", "BTC 现货 ETF 每日净流入（HTML 表格）"),
     ("sosovalue", "https://api.sosovalue.com/api/etf/bitcoin/historical", "etf", "ETF 流量 API"),
