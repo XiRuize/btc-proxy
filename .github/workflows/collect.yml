@@ -34,6 +34,19 @@ jobs:
         with:
           python-version: "3.12"
 
+      # 关键：把上一轮的 data/ 恢复到工作区，否则每轮都从零回补、历史不累积
+      - name: 恢复已有数据
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git ls-remote --exit-code origin data >/dev/null 2>&1; then
+            git fetch --depth 1 origin data
+            git checkout FETCH_HEAD -- data
+            echo "已恢复 $(ls -1 data | wc -l) 个文件"
+          else
+            echo "data 分支尚不存在，首轮从零开始"
+          fi
+
       # push 触发的运行只跑一轮（快速验证改动），定时运行连续采 28 分钟
       - name: 采集
         run: |
