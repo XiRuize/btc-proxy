@@ -136,6 +136,7 @@ def spot_coinbase(cfg, fetcher, bar_sec, backfill):
     if not isinstance(data, list):
         raise RuntimeError(f"Coinbase 返回异常: {str(data)[:120]}")
     now = int(time.time())
+    fetched = now_iso()
     rows = []
     for t, low, high, open_, close, vol in data:
         t = int(t)
@@ -148,6 +149,7 @@ def spot_coinbase(cfg, fetcher, bar_sec, backfill):
             "taker_buy_base": "", "taker_buy_quote": "",
             "close_time_utc": iso((t + bar_sec) * 1000 - 1000),
             "source": "coinbase",
+            "fetched_at": fetched,
         })
     rows.sort(key=lambda r: r["open_time_utc"])
     return rows[-backfill:] if backfill else rows
@@ -164,6 +166,7 @@ def spot_kraken(cfg, fetcher, bar_sec, backfill):
     if not series:
         raise RuntimeError("Kraken 结果为空")
     now = int(time.time())
+    fetched = now_iso()
     rows = []
     for item in series:
         t = int(item[0])
@@ -176,6 +179,7 @@ def spot_kraken(cfg, fetcher, bar_sec, backfill):
             "taker_buy_base": "", "taker_buy_quote": "",
             "close_time_utc": iso((t + bar_sec) * 1000 - 1000),
             "source": "kraken",
+            "fetched_at": fetched,
         })
     rows.sort(key=lambda r: r["open_time_utc"])
     return rows[-backfill:] if backfill else rows
@@ -206,6 +210,7 @@ def deriv_kraken_futures(cfg, fetcher):
         "open_interest": hit.get("openInterest", ""),
         "long_short_ratio": "",
         "source": "kraken_futures",
+        "fetched_at": now_iso(),
     }
 
 
@@ -226,6 +231,7 @@ def derive_snapshot_from_spot(row_spot, name):
         "open_interest": "",
         "long_short_ratio": "",
         "source": "spot_fallback",
+        "fetched_at": now_iso(),
     }
 
 
