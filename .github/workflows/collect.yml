@@ -1,0 +1,78 @@
+name: collect
+
+# 定时：每 30 分钟启动一次，进程内连续采 28 分钟（每 5 分钟一轮）。
+# 为什么不在 cron 里写 */5：GitHub 的定时器对 5 分钟粒度很不准（实测 15 小时只跑了 2 次），
+# 改成"少启动、长时间跑"，用 job 内部循环保证 5 分钟粒度。
+on:
+  schedule:
+    - cron: "*/30 * * * *"
+  push:
+    branches: [main]
+    paths:
+      - "scripts/**"
+      - "config.json"
+      - ".github/workflows/**"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: btc-collect
+  cancel-in-progress: true
+
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # 关键：把上一轮的 data/ 恢复到工作区，否则每轮都从零回补、历史不累积
+      - name: 恢复已有数据
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git ls-remote --exit-code origin data >/dev/null 2>&1; then
+            git fetch --depth 1 origin data
+            git checkout FETCH_HEAD -- data
+            echo "已恢复 $(ls -1 data | wc -l) 个文件"
+          else
+            echo "data 分支尚不存在，首轮从零开始"
+          fi
+
+      # push 触发的运行只跑一轮（快速验证改动），定时运行连续采 28 分钟
+      - name: 采集
+        run: |
+          LOOP=${{ github.event_name == 'push' && '0' || '28' }}
+          python scripts/collect.py --config config.json --out data --loop-minutes $LOOP
+
+      - name: 发布到 data 分支
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name  "btc-proxy-bot"
+          git config user.email "btc-proxy-bot@users.noreply.github.com"
+
+          if git ls-remote --exit-code origin data >/dev/null 2>&1; then
+            git fetch -q origin data
+            if git diff --quiet FETCH_HEAD -- data; then
+              echo "数据无变化，跳过提交"
+              exit 0
+            fi
+          fi
+
+          # data 分支只放数据，且每次用孤儿提交重写：历史永远 1 个 commit
+          git checkout --orphan data-tmp
+          git rm -r --cached . -q || true
+          git add -f data
+          git commit -q -m "snapshot $(date -u +%FT%TZ)"
+          git branch -D data 2>/dev/null || true
+          git branch -m data
+          git push -f origin data
