@@ -1,0 +1,29 @@
+{
+  "generated_at": "2026-11-14T19:20:05Z",
+  "symbols": {
+    "BTCUSDT": {
+      "last_close": "65488.8",
+      "last_bar": "2026-11-14T19:15:00Z",
+      "source": "coinbase",
+      "mark_price": "65390.61342651173",
+      "funding_rate": "0.2726746182185",
+      "open_interest": "2301.6492"
+    },
+    "ETHUSDT": {
+      "last_close": "1828.77",
+      "last_bar": "2026-11-14T19:15:00Z",
+      "source": "coinbase",
+      "mark_price": "1825.25324127048",
+      "funding_rate": "-0.017813065239666057",
+      "open_interest": "29210.723"
+    },
+    "SOLUSDT": {
+      "last_close": "72.1",
+      "last_bar": "2026-11-14T19:15:00Z",
+      "source": "coinbase",
+      "mark_price": "71.92666905978",
+      "funding_rate": "-0.003897438470000024",
+      "open_interest": "309664.66"
+    }
+  }
+}
