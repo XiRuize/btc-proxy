@@ -1,0 +1,49 @@
+name: probe
+
+# 信源探测：在 runner 上跑一遍，把结果发到 probe 分支。
+# 为什么需要：本机受 DNS 污染与地区限制，同一个源在两边可达性完全不同，
+# 只有实测才知道哪条管道能用。
+on:
+  push:
+    paths:
+      - "scripts/probe_sources.py"
+      - ".github/workflows/probe.yml"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: probe
+  cancel-in-progress: true
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: 探测
+        run: python scripts/probe_sources.py --out data/sources.json
+
+      - name: 发布到 probe 分支
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name  "btc-proxy-bot"
+          git config user.email "btc-proxy-bot@users.noreply.github.com"
+          if [ ! -f data/sources.json ]; then echo "没有结果文件"; exit 1; fi
+          git checkout --orphan probe-tmp
+          git rm -r --cached . -q || true
+          git add -f data/sources.json
+          git commit -q -m "probe $(date -u +%FT%TZ)"
+          git branch -D probe 2>/dev/null || true
+          git branch -m probe
+          git push -f origin probe

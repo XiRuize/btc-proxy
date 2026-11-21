@@ -1,0 +1,48 @@
+{
+  "round": 7,
+  "started_at": "2026-11-21T12:25:05Z",
+  "errors": [],
+  "symbols": {
+    "BTCUSDT": {
+      "symbol": "BTCUSDT",
+      "kline_rows": 5065,
+      "kline_added": 1,
+      "kline_source": "coinbase",
+      "kline_last": "2026-11-21T12:20:00Z",
+      "snapshot_rows": 398,
+      "snapshot_added": 1,
+      "snapshot_source": "kraken_futures",
+      "snapshot_last": "2026-11-21T12:25:00Z"
+    },
+    "ETHUSDT": {
+      "symbol": "ETHUSDT",
+      "kline_rows": 5064,
+      "kline_added": 1,
+      "kline_source": "coinbase",
+      "kline_last": "2026-11-21T12:20:00Z",
+      "snapshot_rows": 398,
+      "snapshot_added": 1,
+      "snapshot_source": "kraken_futures",
+      "snapshot_last": "2026-11-21T12:25:00Z"
+    },
+    "SOLUSDT": {
+      "symbol": "SOLUSDT",
+      "kline_rows": 5064,
+      "kline_added": 1,
+      "kline_source": "coinbase",
+      "kline_last": "2026-11-21T12:20:00Z",
+      "snapshot_rows": 398,
+      "snapshot_added": 1,
+      "snapshot_source": "kraken_futures",
+      "snapshot_last": "2026-11-21T12:25:00Z"
+    }
+  },
+  "finished_at": "2026-11-21T12:25:05Z",
+  "http_calls": 42,
+  "partially_failed": false,
+  "venue": {
+    "BTCUSDT": "coinbase",
+    "ETHUSDT": "coinbase",
+    "SOLUSDT": "coinbase"
+  }
+}
