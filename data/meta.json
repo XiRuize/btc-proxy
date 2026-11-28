@@ -1,0 +1,7 @@
+{
+  "venue": {
+    "BTCUSDT": "coinbase",
+    "ETHUSDT": "coinbase",
+    "SOLUSDT": "coinbase"
+  }
+}

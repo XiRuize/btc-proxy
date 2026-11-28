@@ -1,0 +1,5 @@
+__pycache__/
+*.pyc
+_selftest/
+data/*.tmp
+.DS_Store

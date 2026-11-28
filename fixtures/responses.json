@@ -1,0 +1,20 @@
+{
+  "_comment": "离线样例：模拟 Coinbase 现货 K 线 + Kraken Futures tickers 的返回（时间戳是固定的历史值）",
+  "coinbase:BTC-USD": [
+    [1730787300, "76388.88", "78063.30", "76816.01", "77453.86", "12560.17"],
+    [1730787600, "77000.00", "77900.00", "77453.86", "77810.20", "8300.44"]
+  ],
+  "kraken_futures:tickers": {
+    "result": "success",
+    "tickers": [
+      {
+        "symbol": "PF_XBTUSD",
+        "markPrice": 77460.1,
+        "indexPrice": 77451.2,
+        "fundingRate": 0.0001,
+        "openInterest": 81234.56,
+        "last": 77455.0
+      }
+    ]
+  }
+}
